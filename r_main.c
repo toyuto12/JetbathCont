@@ -129,7 +129,7 @@ void main(void)
 	
 	while (1){
 		static uint8_t jetBusState = JET_STOP;
-		static uint8_t PamOnDly=2;
+		static uint8_t PamOnDly=10;
 		
 		if( gMainLoop ){
 			WDT;
@@ -146,9 +146,10 @@ void main(void)
 							PamOnDly --;
 						}
 					}
+					PamOnDly = 10;
 					jetBusState = JET_SLOWUP;
 				}else{
-					PamOnDly = 2;
+					PamOnDly = 10;
 					SetMovePamLv(-1);
 					DRV_ResetMovePattern();
 				}
