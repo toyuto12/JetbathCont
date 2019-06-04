@@ -218,7 +218,7 @@ void R_MAIN_UserInit(void)
 * Return Value : None
 ***********************************************************************************************************************/
 void MoveInit( void ){
-	uint8_t cycCnt=10;		// 出力回数をカウント
+	uint8_t cycCnt=(10-1);		// 出力回数をカウント(10回目はOFF時間削除の為-1)
 	uint8_t timCnt=0;		// 10msの回数をカウント
 	
 	// U-Y間に 50ms/10ms間隔で50%PWM入力
@@ -245,6 +245,10 @@ void MoveInit( void ){
 			}
 		}
 	}
+	
+	P1= 0x02;	TOE0|= 0x20;					// 出力する。
+	while( !Is10msOverflow );
+	Reset10msOverflow;
 }
 
 /***********************************************************************************************************************
@@ -279,7 +283,7 @@ void MoveForceCycle( void ){
 		if( Is250nsOverflow ){
 			Reset250nsOverflow;
 			DRV_SetNextMovePatternWithPwm();
-			if( cycCnt == 6 ){
+			if( cycCnt == 5 ){
 				cycCnt = 0;
 #if 0	// ここでPWMを大きくする実験用
 				if( duty < 16100 ) duty += 800;
@@ -587,7 +591,7 @@ uint16_t ReadAndTaskCycleCounter(void){
 * Return Value : None
 * Ext Variable : sPos -> 現在の転流位置記録
 ***********************************************************************************************************************/
-static uint8_t sPos = 5;
+static uint8_t sPos = 4;
 void DRV_SetNextMovePatternWithPwm( void ){
 
 	sPos = (sPos +1) %6;	// 内部処理としてローテーションさせる。
@@ -642,7 +646,7 @@ void DRV_SetNextMovePattern( void ){
 * Ext Variable : sPos -> 現在の転流位置記録
 ***********************************************************************************************************************/
 void DRV_ResetMovePattern( void ){
-	sPos = 5;
+	sPos = 4;
 	
 	P1 = 0x00;
 	TOE0&= ~0xA8;
