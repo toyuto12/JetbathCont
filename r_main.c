@@ -44,7 +44,7 @@ Includes
 Pragma directive
 ***********************************************************************************************************************/
 /* Start user code for pragma. Do not edit comment generated here */
-enum{ JET_STOP=0, JET_SLOWUP, JET_HIGH, JET_LOW, JET_SLOWDOWN, JET_U_ERROR, JET_M_ERROR };
+enum{ JET_STOP_WAIT=0, JET_STOP, JET_SLOWUP, JET_HIGH, JET_LOW, JET_SLOWDOWN, JET_U_ERROR, JET_M_ERROR, JET_M_ERROR_WAIT };
 #define WDT		WDTE = 0xAC;
 
 #define Start250nsCounter		(TS0=1<<4)
@@ -73,6 +73,7 @@ void MoveForceCycle( void );
 void MovePwmUp( void );
 uint8_t MovePamUp( int8_t setLv, uint16_t errHighValue, uint8_t isEndAuto );
 void SetMovePamLv(int8_t lv );
+void MovePamLvOnly( int8_t lv, uint8_t dly );
 
 void ResetCycleCounter(void);
 uint16_t ReadAndTaskCycleCounter(void);
@@ -128,16 +129,21 @@ void main(void)
 	DRV_ResetMovePattern();
 	
 	while (1){
-		static uint8_t jetBusState = JET_STOP;
+		static uint8_t jetBusState = JET_STOP_WAIT;
 		static uint8_t PamOnDly=10;
+		static uint16_t StopWait;
 		
 		if( gMainLoop ){
 			WDT;
 			gMainLoop = 0;
 
 			switch( jetBusState ){
+			case JET_STOP_WAIT:
+				StopWait = 100;
+				jetBusState = JET_STOP;
 			case JET_STOP:
-				if( isJetSw() ){
+				if( StopWait ) StopWait --;
+				if( isJetSw() && !StopWait ){
 					SetMovePamLv(0);
 					while( PamOnDly ){
 						if( gMainLoop ){
@@ -175,20 +181,26 @@ void main(void)
 				case 4: jetBusState = JET_SLOWDOWN; break;
 				}
 				break;
-			case JET_SLOWDOWN:
-				MovePamUp(0,192,1);
-//				DRV_SetPam(-1);
-				jetBusState = JET_STOP;
+			case JET_SLOWDOWN:			
+				DRV_ResetMovePattern();
+				MovePamLvOnly(0,1);
+				jetBusState = JET_STOP_WAIT;
 				break;
 			case JET_U_ERROR:
 				DRV_ResetMovePattern();
-				SetMovePamLv(0);
-				if( isJetSw() ) jetBusState = JET_SLOWUP;
+				MovePamLvOnly(0,10);
+//				MovePamUp(0,192,1);
+//				SetMovePamLv(0);
+				jetBusState = JET_STOP_WAIT;
 				break;
 			case JET_M_ERROR:
 				DRV_ResetMovePattern();
-				SetMovePamLv(0);
-				if( isJetSw() ) jetBusState = JET_STOP;				
+				MovePamLvOnly(0,10);
+//				MovePamUp(0,192,1);
+				jetBusState = JET_M_ERROR_WAIT;
+//				SetMovePamLv(-1);
+			case JET_M_ERROR_WAIT:
+				if( isJetSw() ) jetBusState = JET_STOP_WAIT;
 				break;
 			}
 		}
@@ -328,7 +340,7 @@ void MovePwmUp( void ){
 		if( Is10msOverflow ){
 			Reset10msOverflow;
 			if( Duty != 16200 ){
-				Duty += 200;
+ 				Duty += 200;
 				TDR03 = Duty;
 				TDR05 = Duty;
 				TDR07 = Duty;
@@ -390,7 +402,6 @@ void MovePwmUp( void ){
 	}
 }
 
-		
 /***********************************************************************************************************************
 * Function Name: SetMovePamLv
 * Description  : PAM値を強制的に変更する（MovePamUp関数以外で値を触りたい時用）
@@ -402,6 +413,21 @@ int8_t sPamLv = 1;
 void SetMovePamLv(int8_t lv ){
 	sPamLv = lv;
 	DRV_SetPam(lv);
+}
+
+void MovePamLvOnly( int8_t lv, uint8_t dly ){
+	uint8_t d = dly;
+	Start10msTimer;
+	Reset10msOverflow;
+
+	while( sPamLv > lv ){
+		if( Is10msOverflow ){
+			if( !(--d) ){
+				d = dly;
+				DRV_SetPam(--sPamLv);
+			}
+		}
+	}
 }
 
 /***********************************************************************************************************************
@@ -498,12 +524,18 @@ uint8_t MovePamUp( int8_t setLv, uint16_t errHighValue, uint8_t isEndAuto ){
 				if( Cyc != 0xFFFF){
 					if( Cyc > errHighValue ){
 						errCntHigh ++;
-						if( errCntHigh > 10 ) return 1;
+						if( errCntHigh > 10 ){
+							sTrdValue = 0xFFFF -TimModeChange;			// 250nsカウンター値
+							return 2;
+						}
 					}else errCntHigh = 0;
 					
 					if( Cyc <= 24 ){
 						errCntLow ++;
-						if( errCntLow > 60 ) return 2;
+						if( errCntLow > 60 ){
+							sTrdValue = 0xFFFF -TimModeChange;			// 250nsカウンター値
+							return 1;
+						}
 					}else errCntLow = 0;
 				}
 				
@@ -598,17 +630,20 @@ void DRV_SetNextMovePatternWithPwm( void ){
 	
 	// DeadTime生成
 	P1 = 0x00;
-	TOE0&= ~0xA8;
-	TO0 |= 0xA8;		// Under停止ラインをHighに持ち上げる
+//	TOE0&= ~0xA8;
+//	TO0 |= 0xA8;		// Under停止ラインをHighに持ち上げる
 	
 	// Switch
 	switch( sPos ){
 	case 5:	P1= 0x02;		TOE0|= 0x20;	break;		// HU LV(Y)
-	case 0:	P1= 0x02;		TOE0|= 0x08;	break;		// HU LW(Z)
+	case 0:	TOE0&= ~0xA8;	TO0 |= 0xA8;
+			P1= 0x02;		TOE0|= 0x08;	break;		// HU LW(Z)
 	case 1:	P1= 0x08;		TOE0|= 0x08;	break;		// HV LW(Z)
-	case 2:	P1= 0x08;		TOE0|= 0x80;	break;		// HV LU(X)
+	case 2:	TOE0&= ~0xA8;	TO0 |= 0xA8;
+			P1= 0x08;		TOE0|= 0x80;	break;		// HV LU(X)
 	case 3:	P1= 0x20;		TOE0|= 0x80;	break;		// HW LU(X)
-	case 4:	P1= 0x20;		TOE0|= 0x20;	break;		// HW LV(Y)
+	case 4:	TOE0&= ~0xA8;	TO0 |= 0xA8;
+			P1= 0x20;		TOE0|= 0x20;	break;		// HW LV(Y)
 	}
 }
 
@@ -621,20 +656,24 @@ void DRV_SetNextMovePatternWithPwm( void ){
 ***********************************************************************************************************************/
 void DRV_SetNextMovePattern( void ){
 
+	sPos = (sPos +1) %6;	// 内部処理としてローテーションさせる。
+
 	// DeadTime生成
 	P1 = 0x00;
-	TOE0&= ~0xA8;
-	TO0 |= 0xA8;		// Under停止ラインをHighに持ち上げる
-	sPos = (sPos +1) %6;	// 内部処理としてローテーションさせる。
+//	TOE0&= ~0xA8;
+//	TO0 |= 0xA8;		// Under停止ラインをHighに持ち上げる
 	
 	// Switch
 	switch( sPos ){
 	case 5:	P1= 0x02;		TO0&= ~0x20;	break;		// HU LV(Y)
-	case 0:	P1= 0x02;		TO0&= ~0x08;	break;		// HU LW(Z)
+	case 0:	TOE0&= ~0xA8;	TO0 |= 0xA8;
+			P1= 0x02;		TOE0|= 0x08;	break;		// HU LW(Z)
 	case 1:	P1= 0x08;		TO0&= ~0x08;	break;		// HV LW(Z)
-	case 2:	P1= 0x08;		TO0&= ~0x80;	break;		// HV LU(X)
+	case 2:	TOE0&= ~0xA8;	TO0 |= 0xA8;
+			P1= 0x08;		TOE0|= 0x80;	break;		// HV LU(X)
 	case 3:	P1= 0x20;		TO0&= ~0x80;	break;		// HW LU(X)
-	case 4:	P1= 0x20;		TO0&= ~0x20;	break;		// HW LV(Y)
+	case 4:	TOE0&= ~0xA8;	TO0 |= 0xA8;
+			P1= 0x20;		TOE0|= 0x20;	break;		// HW LV(Y)
 	}
 }
 
