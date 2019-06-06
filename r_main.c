@@ -189,16 +189,12 @@ void main(void)
 			case JET_U_ERROR:
 				DRV_ResetMovePattern();
 				MovePamLvOnly(0,10);
-//				MovePamUp(0,192,1);
-//				SetMovePamLv(0);
 				jetBusState = JET_STOP_WAIT;
 				break;
 			case JET_M_ERROR:
 				DRV_ResetMovePattern();
 				MovePamLvOnly(0,10);
-//				MovePamUp(0,192,1);
 				jetBusState = JET_M_ERROR_WAIT;
-//				SetMovePamLv(-1);
 			case JET_M_ERROR_WAIT:
 				if( isJetSw() ) jetBusState = JET_STOP_WAIT;
 				break;
@@ -422,6 +418,8 @@ void MovePamLvOnly( int8_t lv, uint8_t dly ){
 
 	while( sPamLv > lv ){
 		if( Is10msOverflow ){
+			Reset10msOverflow;
+			WDT;
 			if( !(--d) ){
 				d = dly;
 				DRV_SetPam(--sPamLv);
