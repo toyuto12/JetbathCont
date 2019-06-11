@@ -104,6 +104,7 @@ void main(void)
     /* Start user code. Do not edit comment generated here */
 	
 	R_TAU0_Channel2_Start();
+	DRV_ResetMovePattern();
 	R_IT_Start();
 	Init10msTimer();
 	Init250nsCounter();	
@@ -114,6 +115,9 @@ void main(void)
 	while( !P6_bit.no0 && !P13_bit.no7 ){
 //	while( !P6_bit.no0 ){
 		static uint16_t cnt=0;
+		
+		DRV_ResetMovePattern();
+		isJetSw();		// ワンプッシュの整合性を保つため
 		if( gMainLoop ){
 			WDT;
 			gMainLoop = 0;
@@ -134,8 +138,8 @@ void main(void)
 		static uint16_t StopWait;
 		
 		if( gMainLoop ){
-			WDT;
 			gMainLoop = 0;
+			WDT;
 
 			switch( jetBusState ){
 			case JET_STOP_WAIT:
@@ -188,12 +192,12 @@ void main(void)
 				break;
 			case JET_U_ERROR:
 				DRV_ResetMovePattern();
-				MovePamLvOnly(0,10);
+				MovePamLvOnly(-1,10);
 				jetBusState = JET_STOP_WAIT;
 				break;
 			case JET_M_ERROR:
 				DRV_ResetMovePattern();
-				MovePamLvOnly(0,10);
+				MovePamLvOnly(-1,10);
 				jetBusState = JET_M_ERROR_WAIT;
 			case JET_M_ERROR_WAIT:
 				if( isJetSw() ) jetBusState = JET_STOP_WAIT;
@@ -416,13 +420,15 @@ void MovePamLvOnly( int8_t lv, uint8_t dly ){
 	Start10msTimer;
 	Reset10msOverflow;
 
-	while( sPamLv > lv ){
+	while( sPamLv != lv ){
 		if( Is10msOverflow ){
 			Reset10msOverflow;
 			WDT;
 			if( !(--d) ){
 				d = dly;
-				DRV_SetPam(--sPamLv);
+				if( sPamLv > lv ) sPamLv --;
+				else sPamLv ++;
+				DRV_SetPam(sPamLv);
 			}
 		}
 	}
@@ -767,13 +773,9 @@ void DRV_SetPam(int8_t val){
 * Return Value : none
 ***********************************************************************************************************************/
 void SeqTestMode( void ){
-	uint16_t secVal = 0;
-	uint8_t pamVal = 0;
-	uint8_t fbRCnt,fbResult=1;
+	uint8_t fbRCnt;
+	uint8_t state = 1;
 	
-	DRV_SetPam( pamVal );
-	Start10msTimer;
-
 	// 停止
 	P1 = 0x00;	TOE0&= ~0xA8;	TO0 |= 0xA8;		// Under停止ラインをHighに持ち上げる
 	
@@ -785,147 +787,107 @@ void SeqTestMode( void ){
 //			else DRV_SetPam(0);
 //		}
 //	}
-	
-	
-	// PAMを0x00にして、3秒まで待機
-	while( secVal < 300 ){
-		if( Is10msOverflow ){
-			Reset10msOverflow;
-			secVal++;
-			WDT;
-		}
-	}
 
-	// PAMを0x0Bまで上げて、8秒まで待機
-	while( secVal < 800 ){
-		if( Is10msOverflow ){
-			Reset10msOverflow;
-			if( pamVal < 0x0B ) DRV_SetPam( ++pamVal );
-			secVal++;
+	DRV_SetPam(-1);		// 待機時の電圧
+	while( state < 10 ){
+		if( gMainLoop ){
+			gMainLoop = 0;
 			WDT;
-		}
-	}
-	
-	// PAMを0x19まで上げて、15秒まで待機
-	while( secVal < 1300 ){
-		if( Is10msOverflow ){
-			Reset10msOverflow;
-			secVal++;
-			if( pamVal < 0x19 ) DRV_SetPam( ++pamVal );
-			WDT;
-		}
-	}
-	
-	// PAMを0x1Fまで上げて、18秒まで待機
-	while( secVal < 1800 ){
-		if( Is10msOverflow ){
-			Reset10msOverflow;
-			secVal++;
-			if( pamVal < 0x1F ) DRV_SetPam( ++pamVal );
-			WDT;
-		}
-	}
-	
-//	secVal = 4000;
-	
-
-	// PAMを0x1Eに設定して、41秒まで待機
-	P1 = 0x00;	TO0 |= 0xA8;
-	while( secVal < 4100 ){
-		if( Is10msOverflow ){
-			Reset10msOverflow;
-			secVal++;
-			if( pamVal == 0x1F ) DRV_SetPam( --pamVal );
-//			if( pamVal > 25 ) DRV_SetPam( --pamVal );
-			WDT;
-		}
-	}
-	
-	// UY相に印加して、FBが U=H,Y=L
-	P1= 0x02;	TO0 &= ~0x20;
-	fbRCnt = 4;
-	while( secVal < 4400 ){
-		if( Is10msOverflow ){
-			Reset10msOverflow;
-			if( fbRCnt && (secVal > 4200) ){
-				fbRCnt --;
-				if( (P12&0x03) != 0x01 ) fbResult = 0;
-			}
-			secVal++;
-			WDT;
-		}
-	}
-
-	// 停止
-	P1 = 0x00;	TO0 |= 0xA8;
-	while( secVal < 4500 ){
-		if( Is10msOverflow ){
-			Reset10msOverflow;
-			secVal++;
-			WDT;
-		}
-	}
-
-	// VZ相に印加して、FBが V=H,Z=L
-	P1= 0x08;	TO0 &= ~0x08;
-	fbRCnt = 4;
-	while( secVal < 4800 ){
-		if( Is10msOverflow ){
-			Reset10msOverflow;
-			if( fbRCnt && (secVal > 4600) ){
-				fbRCnt --;
-				if( (P12&0x06) != 0x02 ) fbResult = 0;
-			}
-			secVal++;
-			WDT;
-		}
-	}
-
-	// 停止
-	P1 = 0x00;	TO0 |= 0xA8;
-	while( secVal < 4900 ){
-		if( Is10msOverflow ){
-			Reset10msOverflow;
-			secVal++;
-			WDT;
-		}
-	}
-	
-	// WX相に印加して、FBが W=H,X=L
-	P1= 0x20;	TO0 &= ~0x80;
-	fbRCnt = 4;
-	while( secVal < 5200 ){
-		if( Is10msOverflow ){
-			Reset10msOverflow;
-			if( fbRCnt && (secVal > 5000) ){
-				fbRCnt --;
-				if( (P12&0x05) != 0x04 ) fbResult = 0;
-			}
-			secVal++;
-			WDT;
-		}
-	}
 		
-	// FB入力検査結果をPAMで出力
-	P1 = 0x00;	TO0 |= 0xA8;
-	while( secVal < 5700 ){
-		if( Is10msOverflow ){
-			Reset10msOverflow;
-			secVal++;
-			if( pamVal > ((fbResult) ?0x08 :0x11) ) DRV_SetPam( --pamVal );
-			WDT;
+			switch( state ){
+			case 1:
+				if( isJetSw() ){
+					// ポンプオン時の最低電圧
+					DRV_SetPam(0);
+					state ++;
+				}
+				break;
+			case 2:
+				if( isJetSw() ){
+					// ジェット[弱]の電圧
+					MovePamLvOnly(0x0B,1);
+					state ++;
+				}
+				break;
+			case 3:
+				if( isJetSw() ){
+					// ジェット[強]の電圧
+					MovePamLvOnly(0x19,1);
+					state ++;
+				}
+				break;
+			case 4:
+				if( isJetSw() ){
+					// ポンプオン時の最高電圧
+					MovePamLvOnly(0x1F,1);
+					state ++;
+				}
+				break;
+			case 5:
+				if( isJetSw() ){
+					// 改1Bitの判定
+					MovePamLvOnly(0x1E,1);
+					state ++;
+				}
+				break;
+			case 6:
+				if( isJetSw() ){
+					// UY相に印加して、FBが U=H,Y=L
+					DRV_ResetMovePattern();
+					P1= 0x02;	TO0 &= ~0x20;
+					fbRCnt = 4;
+					state ++;
+				}
+				break;
+			case 7:
+				if( fbRCnt ){
+					fbRCnt --;
+					if( (P12&0x03) != 0x01 ){
+						DRV_ResetMovePattern();
+						MovePamLvOnly(-1,1);
+						while(1){WDT;};
+					}
+				}else if( isJetSw() ){
+					// VZ相に印加して、FBが V=H,Z=L
+					DRV_ResetMovePattern();
+					P1= 0x08;	TO0 &= ~0x08;
+					fbRCnt = 4;
+					state ++;
+				}
+				break;
+			case 8:
+				if( fbRCnt ){
+					fbRCnt --;
+					if( (P12&0x06) != 0x02 ){
+						DRV_ResetMovePattern();
+						MovePamLvOnly(-1,1);
+						while(1){WDT;};
+					}
+				}else if( isJetSw() ){
+					// WX相に印加して、FBが W=H,X=L
+					DRV_ResetMovePattern();
+					P1= 0x20;	TO0 &= ~0x80;
+					fbRCnt = 4;
+					state ++;
+				}
+				break;
+			case 9:
+				if( fbRCnt ){
+					fbRCnt --;
+					if( (P12&0x05) != 0x04 ){
+						DRV_ResetMovePattern();
+						MovePamLvOnly(-1,1);
+						while(1){WDT;};
+					}
+				}else if( isJetSw() ){
+					DRV_ResetMovePattern();
+					state = 0xFF;
+					MovePamLvOnly(-1,1);
+				}
+				break;	
+			}
 		}
 	}
-
-	// 
-	while( secVal < 6000 ){
-		if( Is10msOverflow ){
-			Reset10msOverflow;
-			secVal++;
-			if( pamVal > ((fbResult) ?0x00 :0x11) ) DRV_SetPam( --pamVal );
-			WDT;
-		}
-	}	
 }
 
 /* End user code. Do not edit comment generated here */
