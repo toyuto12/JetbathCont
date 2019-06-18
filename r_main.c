@@ -44,7 +44,7 @@ Includes
 Pragma directive
 ***********************************************************************************************************************/
 /* Start user code for pragma. Do not edit comment generated here */
-enum{ JET_STOP_WAIT=0, JET_STOP, JET_SLOWUP, JET_HIGH, JET_LOW, JET_SLOWDOWN, JET_U_ERROR, JET_M_ERROR, JET_M_ERROR_WAIT };
+enum{ JET_STOP_WAIT=0, JET_STOP, JET_SLOWUP, JET_HIGH, JET_LOW, JET_SLOWDOWN, JET_U_ERROR, JET_M_ERROR, JET_M_ERROR_WAIT, JET_SLEEP };
 #define WDT		WDTE = 0xAC;
 
 #define Start250nsCounter		(TS0=1<<4)
@@ -58,6 +58,9 @@ enum{ JET_STOP_WAIT=0, JET_STOP, JET_SLOWUP, JET_HIGH, JET_LOW, JET_SLOWDOWN, JE
 #define Is10msOverflow		(IF1L&0x10)
 #define Reset10msOverflow	(IF1L&=~0x10)
 #define Stop10msTimer		(TT0=1<<0)
+
+#define PAM_SLEEP_TIME	300
+#define STOP_TIME		100
 
 /* End user code. Do not edit comment generated here */
 
@@ -135,19 +138,30 @@ void main(void)
 	while (1){
 		static uint8_t jetBusState = JET_STOP_WAIT;
 		static uint8_t PamOnDly=10;
-		static uint16_t StopWait;
+		static int16_t StopWait;
 		
 		if( gMainLoop ){
 			gMainLoop = 0;
 			WDT;
 
 			switch( jetBusState ){
+			case JET_SLEEP:
+				while( P6_bit.no0 ){
+					STOP();
+					IF1H &= ~0x04;
+					WDT;
+					
+				}
+				StopWait = 0;
+				DRV_ResetMovePattern();
+				jetBusState = JET_STOP;
+				break;
 			case JET_STOP_WAIT:
-				StopWait = 100;
+				StopWait = STOP_TIME;
 				jetBusState = JET_STOP;
 			case JET_STOP:
-				if( StopWait ) StopWait --;
-				if( isJetSw() && !StopWait ){
+				StopWait --;
+				if( isJetSw() && (StopWait<=0) ){
 					SetMovePamLv(0);
 					while( PamOnDly ){
 						if( gMainLoop ){
@@ -158,6 +172,11 @@ void main(void)
 					}
 					PamOnDly = 10;
 					jetBusState = JET_SLOWUP;
+				}else if( StopWait<-PAM_SLEEP_TIME ){
+//					P1 = 0x00;
+//					TOE0&= ~0xA8;
+					TO0 &= ~0xA8;		// Under’âŽ~ƒ‰ƒCƒ“‚ðLow(15Vƒ‰ƒCƒ“—Ž‚¿‚Ä‚é‚Ì‚ÅON‚É‚È‚ç‚È‚¢j
+					jetBusState = JET_SLEEP;
 				}else{
 					PamOnDly = 10;
 					SetMovePamLv(-1);
@@ -170,7 +189,8 @@ void main(void)
 				MovePwmUp();
 				jetBusState = JET_HIGH;
 			case JET_HIGH:
-				switch( MovePamUp(25,272,0) ){
+				// ‰ñ“]” = rpm /60 /20 *12 *8 (50ms’PˆÊ‚Ì‰ñ“]” *ˆê‰ñ“]‚Ì“]—¬ *ƒoƒbƒtƒ@”)
+				switch( MovePamUp(25,312,0) ){
 				case 1: jetBusState = JET_M_ERROR;	break;
 				case 2: jetBusState = JET_U_ERROR;	break;
 				case 3: jetBusState = JET_LOW;		break;
@@ -178,7 +198,7 @@ void main(void)
 				}
 				break;
 			case JET_LOW:
-				switch( MovePamUp(11,192,0) ){
+				switch( MovePamUp(11,232,0) ){
 				case 1: jetBusState = JET_M_ERROR;	break;
 				case 2: jetBusState = JET_U_ERROR;	break;
 				case 3:
