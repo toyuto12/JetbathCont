@@ -173,8 +173,6 @@ void main(void)
 					PamOnDly = 10;
 					jetBusState = JET_SLOWUP;
 				}else if( StopWait<-PAM_SLEEP_TIME ){
-//					P1 = 0x00;
-//					TOE0&= ~0xA8;
 					TO0 &= ~0xA8;		// Under’âŽ~ƒ‰ƒCƒ“‚ðLow(15Vƒ‰ƒCƒ“—Ž‚¿‚Ä‚é‚Ì‚ÅON‚É‚È‚ç‚È‚¢j
 					jetBusState = JET_SLEEP;
 				}else{
