@@ -136,7 +136,7 @@ void main(void)
 	DRV_ResetMovePattern();
 	
 	while (1){
-		static uint8_t jetBusState = JET_STOP_WAIT;
+		static uint8_t jetBusState = JET_STOP_WAIT,jmpJetBusState;
 		static uint8_t PamOnDly=10;
 		static int16_t StopWait;
 		
@@ -154,7 +154,7 @@ void main(void)
 				}
 				StopWait = 0;
 				DRV_ResetMovePattern();
-				jetBusState = JET_STOP;
+				jetBusState = jmpJetBusState;
 				break;
 			case JET_STOP_WAIT:
 				StopWait = STOP_TIME;
@@ -174,6 +174,7 @@ void main(void)
 					jetBusState = JET_SLOWUP;
 				}else if( StopWait<-PAM_SLEEP_TIME ){
 					TO0 &= ~0xA8;		// Under停止ラインをLow(15Vライン落ちてるのでONにならない）
+					jmpJetBusState = JET_STOP;
 					jetBusState = JET_SLEEP;
 				}else{
 					PamOnDly = 10;
@@ -216,9 +217,16 @@ void main(void)
 			case JET_M_ERROR:
 				DRV_ResetMovePattern();
 				MovePamLvOnly(-1,10);
+				StopWait = 0;
 				jetBusState = JET_M_ERROR_WAIT;
 			case JET_M_ERROR_WAIT:
+				StopWait --;
 				if( isJetSw() ) jetBusState = JET_STOP_WAIT;
+				else if( StopWait<-PAM_SLEEP_TIME ){
+					TO0 &= ~0xA8;		// Under停止ラインをLow(15Vライン落ちてるのでONにならない）
+					jmpJetBusState = JET_M_ERROR_WAIT;
+					jetBusState = JET_SLEEP;
+				}
 				break;
 			}
 		}
