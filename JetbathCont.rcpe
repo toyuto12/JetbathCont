@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <MicomToolCommonProjectFile Version="1.00">
-  <CreatorType Name="CubeSuite+" Version="V8.01.00  [03 Dec 2018]" />
+  <CreatorType Name="CubeSuite+" Version="V8.03.00  [21 Nov 2019]" />
   <Placeholders>
     <PlaceholderPrefix>%</PlaceholderPrefix>
     <PlaceholderPostfix>%</PlaceholderPostfix>
@@ -43,7 +43,7 @@
       <DebugToolSettings />
     </DebugOptions>
     <Device Series="RL78">R5F101AA</Device>
-    <BuildOptions Name="CC-RL" Version="V1.08.00">
+    <BuildOptions Name="CC-RL" Version="V1.09.00">
       <BuildMode Name="DefaultBuild" Active="True">
         <LinkOrder>
           <Path>DefaultBuild\cstart.obj</Path>
@@ -92,9 +92,9 @@
           <Option>-NOCOmpress</Option>
           <Option>-NOOPtimize</Option>
           <Option>-OUtput=%BuildModeName%\%ProjectName%.abs</Option>
-          <Option>-LIBrary=%MicomToolPath%\CC-RL\V1.08.00\lib\rl78cm4s.lib</Option>
-          <Option>-LIBrary=%MicomToolPath%\CC-RL\V1.08.00\lib\malloc_n.lib</Option>
-          <Option>-LIBrary=%MicomToolPath%\CC-RL\V1.08.00\lib\rl78cm4r.lib</Option>
+          <Option>-LIBrary=%MicomToolPath%\CC-RL\V1.09.00\lib\rl78cm4s.lib</Option>
+          <Option>-LIBrary=%MicomToolPath%\CC-RL\V1.09.00\lib\malloc_n.lib</Option>
+          <Option>-LIBrary=%MicomToolPath%\CC-RL\V1.09.00\lib\rl78cm4r.lib</Option>
           <Option>-OCDBG=04</Option>
           <Option>-USER_OPT_BYTE=78FFE8</Option>
           <Option>-LISt=%BuildModeName%\%ProjectName%.map</Option>
@@ -265,6 +265,7 @@
     &lt;RAMEndAddress Name="RAMEndAddress" Fixed="" Text="000FFEFF" /&gt;
     &lt;ROMEndAddress Chip="R5F1006A,R5F1007A,R5F1008A,R5F100AA,R5F100BA,R5F100CA,R5F100EA,R5F100FA,R5F100GA" Name="ROMEndAddress" Fixed="" Text="00003FFF" /&gt;
     &lt;MirrorROM Chip="R5F1006A,R5F1007A,R5F1008A,R5F100AA,R5F100BA,R5F100CA,R5F100EA,R5F100FA,R5F100GA,R5F1016A,R5F1017A,R5F1018A,R5F101AA,R5F101BA,R5F101CA,R5F101EA,R5F101FA,R5F101GA" Name="MirrorROM" Fixed="" Text="8" /&gt;
+    &lt;ADPC_AD Name="ADPC_AD" Value="-1" /&gt;
     &lt;CodePath Name="CodePath" Text=".\" /&gt;
     &lt;ReportType Name="ReportType" Text="Html" /&gt;
     &lt;CreationDateType Name="CreationDateType" Text="OutputDate" /&gt;
@@ -283,7 +284,6 @@
     &lt;TO02_PWM Name="TO02_PWM" Text="false" /&gt;
     &lt;TO03_PWM Name="TO03_PWM" Text="false" /&gt;
     &lt;LinkFileName Name="LinkFileName" Text="" /&gt;
-    &lt;ADPC_AD Name="ADPC_AD" Value="-1" /&gt;
   &lt;/VAR&gt;
   &lt;DIR&gt;
     &lt;PIN&gt;
@@ -660,13 +660,15 @@
         &lt;/r_cg_cgc_user.c&gt;
         &lt;r_cg_cgc.h UserName="r_cg_cgc.h" LibName=".h" InUse="1" /&gt;
         &lt;r_cg_pfdl.c UserName="r_cg_pfdl.c" LibName="_pfdl.c" InUse="1"&gt;
-          &lt;Type R_FDL_Create="void R_FDL_Create(void)" R_FDL_Write="pfdl_status_t R_FDL_Write(pfdl_u16 index, __near pfdl_u08* buffer, pfdl_u16 bytecount)" R_FDL_Read="pfdl_status_t R_FDL_Read(pfdl_u16 index, __near pfdl_u08* buffer, pfdl_u16 bytecount)" R_FDL_Erase="pfdl_status_t R_FDL_Erase(pfdl_u16 blockno)" R_FDL_Open="void R_FDL_Open(void)" R_FDL_Close="void PFDL_Close(void)" /&gt;
-          &lt;R_FDL_Create UserName="R_FDL_Create" LibName="R_FDL_Create" InUse="0" Init="1" InitMode="" /&gt;
+          &lt;Type R_FDL_Create="void R_FDL_Create(void)" R_FDL_Write="pfdl_status_t R_FDL_Write(pfdl_u16 index, __near pfdl_u08* buffer, pfdl_u16 bytecount)" R_FDL_Read="pfdl_status_t R_FDL_Read(pfdl_u16 index, __near pfdl_u08* buffer, pfdl_u16 bytecount)" R_FDL_Erase="pfdl_status_t R_FDL_Erase(pfdl_u16 blockno)" R_FDL_Open="void R_FDL_Open(void)" R_FDL_Close="void PFDL_Close(void)" R_FDL_BlankCheck="pfdl_status_t R_FDL_BlankCheck(pfdl_u16 index, pfdl_u16 bytecount)" R_FDL_IVerify="pfdl_status_t R_FDL_IVerify(pfdl_u16 index, pfdl_u16 bytecount)" /&gt;
+          &lt;R_FDL_Create UserName="R_FDL_Create" LibName="R_FDL_Create" InUse="0" InitMode="" /&gt;
           &lt;R_FDL_Write UserName="R_FDL_Write" LibName="R_FDL_Write" InUse="0" /&gt;
           &lt;R_FDL_Read UserName="R_FDL_Read" LibName="R_FDL_Read" InUse="0" /&gt;
           &lt;R_FDL_Erase UserName="R_FDL_Erase" LibName="R_FDL_Erase" InUse="0" /&gt;
           &lt;R_FDL_Open UserName="R_FDL_Open" LibName="R_FDL_Open" InUse="0" /&gt;
           &lt;R_FDL_Close UserName="R_FDL_Close" LibName="R_FDL_Close" InUse="0" /&gt;
+          &lt;R_FDL_BlankCheck UserName="R_FDL_BlankCheck" LibName="R_FDL_BlankCheck" InUse="0" /&gt;
+          &lt;R_FDL_IVerify UserName="R_FDL_IVerify" LibName="R_FDL_IVerify" InUse="0" /&gt;
         &lt;/r_cg_pfdl.c&gt;
         &lt;r_cg_pfdl.h UserName="r_cg_pfdl.h" LibName="_pfdl.h" InUse="0" /&gt;
       &lt;/CGC&gt;

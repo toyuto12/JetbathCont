@@ -192,18 +192,19 @@ void main(void)
 				switch( MovePamUp(25,312,0) ){
 				case 1: jetBusState = JET_M_ERROR;	break;
 				case 2: jetBusState = JET_U_ERROR;	break;
-				case 3: jetBusState = JET_LOW;		break;
+//				case 3: jetBusState = JET_LOW;		break;
+				case 3:
 				case 4: jetBusState = JET_SLOWDOWN;	break;
 				}
 				break;
-			case JET_LOW:
-				switch( MovePamUp(11,232,0) ){
-				case 1: jetBusState = JET_M_ERROR;	break;
-				case 2: jetBusState = JET_U_ERROR;	break;
-				case 3:
-				case 4: jetBusState = JET_SLOWDOWN; break;
-				}
-				break;
+//			case JET_LOW:
+//				switch( MovePamUp(11,232,0) ){
+//				case 1: jetBusState = JET_M_ERROR;	break;
+//				case 2: jetBusState = JET_U_ERROR;	break;
+//				case 3:
+//				case 4: jetBusState = JET_SLOWDOWN; break;
+//				}
+//				break;
 			case JET_SLOWDOWN:			
 				DRV_ResetMovePattern();
 				MovePamLvOnly(0,1);
@@ -470,13 +471,16 @@ void MovePamLvOnly( int8_t lv, uint8_t dly ){
 * Ext Variable : sPamLv -> 現在設定しているPAM値
 *			   : sTrdValue -> 現在の転流タイマ
 ***********************************************************************************************************************/
-uint8_t MovePamUp( int8_t setLv, uint16_t errHighValue, uint8_t isEndAuto ){
+uint8_t MovePamUp( int8_t __setLv, uint16_t __errHighValue, uint8_t isEndAuto ){
 	static uint8_t DetectDly=0;
 	static uint16_t TimSampStart;
 	static uint16_t TimModeChange;
 	static uint16_t TmpModeChange;
 	uint32_t OffTimer = 0;
 	uint8_t State=0;
+	uint8_t powState = 0;
+	uint8_t _setLv[] = {25,11};
+	uint16_t _errHighValue[] = {312,232};
 	
 	static uint16_t Cyc;
 	uint8_t errCntHigh,errCntLow;
@@ -497,10 +501,10 @@ uint8_t MovePamUp( int8_t setLv, uint16_t errHighValue, uint8_t isEndAuto ){
 			Reset10msOverflow;
 			OffTimer ++;
 			
-			if( sPamLv > setLv ){
+			if( sPamLv > _setLv[powState] ){
 				sPamLv --;
 				DRV_SetPam(sPamLv);
-			}else if( sPamLv < setLv ){
+			}else if( sPamLv < _setLv[powState] ){
 				sPamLv ++;
 				DRV_SetPam(sPamLv);
 			}else if( isEndAuto || isJetSw() ){
@@ -542,8 +546,16 @@ uint8_t MovePamUp( int8_t setLv, uint16_t errHighValue, uint8_t isEndAuto ){
 
 				// 終了処理（次に続くPAM_UPとの同期の為、この位置で終了させる
 				if( endFlg ){
-					sTrdValue = 0xFFFF -TimModeChange;			// 250nsカウンター値
-					return 3;
+					endFlg = 0;
+					if( powState == 0 ){
+						powState = 1;
+						OffTimer = 0;
+						errCntHigh = 0;
+						errCntLow = 0;
+					}else{
+						sTrdValue = 0xFFFF -TimModeChange;			// 250nsカウンター値
+						return 3;
+					}
 //				}else if( OffTimer>=(90000/15) ){
 				}else if( OffTimer>=(90000) ){
 					return 4;
@@ -552,7 +564,7 @@ uint8_t MovePamUp( int8_t setLv, uint16_t errHighValue, uint8_t isEndAuto ){
 				
 				Cyc = ReadAndTaskCycleCounter();
 				if( Cyc != 0xFFFF){
-					if( Cyc > errHighValue ){
+					if( Cyc > _errHighValue[powState] ){
 						errCntHigh ++;
 						if( errCntHigh > 10 ){
 							sTrdValue = 0xFFFF -TimModeChange;			// 250nsカウンター値
